@@ -1,11 +1,33 @@
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Building2, Users, Calendar, ClipboardList, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Index() {
+  const { isAuthenticated, user, isLoading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user) {
+      if (user.role === 'Admin' || user.role === 'HR_Manager') {
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [isAuthenticated, user, isLoading, navigate]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b bg-card">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
           <div className="flex items-center gap-2">
@@ -23,13 +45,10 @@ export default function Index() {
         </div>
       </header>
 
-      {/* Hero */}
       <section className="border-b bg-card">
         <div className="mx-auto max-w-6xl px-6 py-20 text-center">
           <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
-            Human Resource Management
-            <br />
-            Made Simple
+            Human Resource Management<br />Made Simple
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
             Streamline your HR operations with Dayflow. Manage employees, track attendance, 
@@ -46,14 +65,11 @@ export default function Index() {
         </div>
       </section>
 
-      {/* Features */}
       <section className="py-20">
         <div className="mx-auto max-w-6xl px-6">
           <div className="text-center">
             <h2 className="text-2xl font-semibold">Everything you need to manage HR</h2>
-            <p className="mt-2 text-muted-foreground">
-              Comprehensive tools for modern HR teams
-            </p>
+            <p className="mt-2 text-muted-foreground">Comprehensive tools for modern HR teams</p>
           </div>
 
           <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -100,7 +116,6 @@ export default function Index() {
         </div>
       </section>
 
-      {/* CTA */}
       <section className="border-t bg-muted/30 py-16">
         <div className="mx-auto max-w-6xl px-6 text-center">
           <h2 className="text-2xl font-semibold">Ready to streamline your HR?</h2>
@@ -113,7 +128,6 @@ export default function Index() {
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="border-t py-8">
         <div className="mx-auto max-w-6xl px-6">
           <div className="flex items-center justify-between text-sm text-muted-foreground">

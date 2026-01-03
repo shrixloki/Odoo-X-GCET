@@ -1,49 +1,113 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Filter, Download, FileText, DollarSign } from "lucide-react";
+import { apiClient } from "@/lib/api";
+import { simData } from "@/lib/simulationData";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 interface PayrollRecord {
   id: number;
-  employeeId: string;
-  employee: string;
-  department: string;
-  basicSalary: number;
+  employee_id: number;
+  employee_name: string;
+  month: string;
+  year: number;
+  basic_salary: number;
   allowances: number;
   deductions: number;
-  netSalary: number;
-  status: "paid" | "pending" | "processing";
+  net_salary: number;
+  status: string;
+  payment_date: string;
 }
-
-const payrollData: PayrollRecord[] = [
-  { id: 1, employeeId: "EMP-001", employee: "John Doe", department: "Engineering", basicSalary: 8500, allowances: 1500, deductions: 1200, netSalary: 8800, status: "paid" },
-  { id: 2, employeeId: "EMP-002", employee: "Sarah Johnson", department: "Marketing", basicSalary: 7500, allowances: 1200, deductions: 1000, netSalary: 7700, status: "paid" },
-  { id: 3, employeeId: "EMP-003", employee: "Michael Chen", department: "Engineering", basicSalary: 9500, allowances: 1800, deductions: 1400, netSalary: 9900, status: "processing" },
-  { id: 4, employeeId: "EMP-004", employee: "Emily Davis", department: "Human Resources", basicSalary: 6500, allowances: 1000, deductions: 900, netSalary: 6600, status: "paid" },
-  { id: 5, employeeId: "EMP-005", employee: "Robert Wilson", department: "Finance", basicSalary: 8000, allowances: 1400, deductions: 1100, netSalary: 8300, status: "pending" },
-  { id: 6, employeeId: "EMP-006", employee: "Lisa Anderson", department: "Engineering", basicSalary: 5500, allowances: 800, deductions: 700, netSalary: 5600, status: "paid" },
-  { id: 7, employeeId: "EMP-007", employee: "David Brown", department: "Sales", basicSalary: 7000, allowances: 2500, deductions: 1000, netSalary: 8500, status: "paid" },
-  { id: 8, employeeId: "EMP-008", employee: "Jennifer Taylor", department: "Operations", basicSalary: 8500, allowances: 1500, deductions: 1200, netSalary: 8800, status: "paid" },
-];
 
 export default function AdminPayroll() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedMonth] = useState("December 2025");
+  const [payrollData, setPayrollData] = useState<PayrollRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchPayroll();
+  }, []);
+
+  const fetchPayroll = async () => {
+    setLoading(true);
+    try {
+      const response = await apiClient.getPayroll(true);
+      if (response.success) {
+        setPayrollData(response.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch payroll:', error);
+    }
+    setLoading(false);
+  };
 
   const filteredData = payrollData.filter(
     (record) =>
-      record.employee.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.employeeId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.department.toLowerCase().includes(searchQuery.toLowerCase())
+      record.employee_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      String(record.employee_id).includes(searchQuery)
   );
 
-  const totalPayroll = payrollData.reduce((sum, r) => sum + r.netSalary, 0);
-  const paidCount = payrollData.filter((r) => r.status === "paid").length;
-  const pendingCount = payrollData.filter((r) => r.status === "pending" || r.status === "processing").length;
+  const totalPayroll = payrollData.reduce((sum, r) => sum + (r.net_salary || 0), 0);
+  const paidCount = payrollData.filter((r) => r.status === "Paid").length;
+  const pendingCount = payrollData.filter((r) => r.status === "Pending").length;
+
+  const handleExportAll = () => {
+    simData.exportToCSV(payrollData, 'payroll');
+    toast({
+      title: "Export Started",
+      description: "Payroll data is being downloaded as CSV",
+    });
+  };
+
+  const handleExportPayslip = (record: PayrollRecord) => {
+    simData.exportPayslip({
+      id: record.id,
+      employee_id: record.employee_id,
+      employee_name: record.employee_name,
+      month: record.month,
+      year: record.year,
+      basic_salary: record.basic_salary,
+      allowances: record.allowances || 500,
+      deductions: record.deductions,
+      net_salary: record.net_salary,
+      status: record.status,
+      payment_date: record.payment_date || ''
+    });
+    toast({
+      title: "Payslip Downloaded",
+      description: `Payslip for ${record.employee_name} has been downloaded`,
+    });
+  };
+
+  const handleRunPayroll = async () => {
+    const currentMonth = new Date().toLocaleString('default', { month: 'long' });
+    const currentYear = new Date().getFullYear();
+    
+    try {
+      const response = await apiClient.generatePayroll({ month: currentMonth, year: currentYear });
+      if (response.success) {
+        toast({
+          title: "Payroll Generated",
+          description: `Payroll for ${currentMonth} ${currentYear} has been generated`,
+        });
+        fetchPayroll();
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate payroll",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
-    <AppLayout role="admin" userName="HR Admin">
+    <AppLayout role="admin" userName={user?.full_name || "HR Admin"}>
       <div className="space-y-6">
         {/* Page Header */}
         <div className="flex items-center justify-between">
@@ -54,11 +118,11 @@ export default function AdminPayroll() {
             </p>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2" onClick={handleExportAll}>
               <Download className="h-4 w-4" />
-              Export
+              Export All
             </Button>
-            <Button className="gap-2">
+            <Button className="gap-2" onClick={handleRunPayroll}>
               <DollarSign className="h-4 w-4" />
               Run Payroll
             </Button>
@@ -70,7 +134,7 @@ export default function AdminPayroll() {
           <div className="summary-card">
             <p className="text-sm text-muted-foreground">Total Payroll</p>
             <p className="mt-1 text-2xl font-semibold">${totalPayroll.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">{selectedMonth}</p>
+            <p className="text-xs text-muted-foreground">This period</p>
           </div>
           <div className="summary-card">
             <p className="text-sm text-muted-foreground">Employees</p>
@@ -94,7 +158,7 @@ export default function AdminPayroll() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search by name, ID, or department..."
+              placeholder="Search by name or ID..."
               className="pl-9"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -108,62 +172,77 @@ export default function AdminPayroll() {
 
         {/* Payroll Table */}
         <div className="rounded-md border bg-card">
-          <div className="overflow-x-auto">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Employee ID</th>
-                  <th>Employee</th>
-                  <th>Department</th>
-                  <th>Basic</th>
-                  <th>Allowances</th>
-                  <th>Deductions</th>
-                  <th>Net Salary</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredData.map((record) => (
-                  <tr key={record.id}>
-                    <td className="font-medium">{record.employeeId}</td>
-                    <td>{record.employee}</td>
-                    <td>{record.department}</td>
-                    <td>${record.basicSalary.toLocaleString()}</td>
-                    <td>${record.allowances.toLocaleString()}</td>
-                    <td>${record.deductions.toLocaleString()}</td>
-                    <td className="font-medium">${record.netSalary.toLocaleString()}</td>
-                    <td>
-                      <span
-                        className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${
-                          record.status === "paid"
-                            ? "bg-success/10 text-success"
-                            : record.status === "processing"
-                            ? "bg-pending/10 text-pending"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="sm" className="h-8 gap-1 text-primary">
-                          <FileText className="h-4 w-4" />
-                          View
-                        </Button>
-                      </div>
-                    </td>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Employee ID</th>
+                    <th>Employee</th>
+                    <th>Period</th>
+                    <th>Basic</th>
+                    <th>Allowances</th>
+                    <th>Deductions</th>
+                    <th>Net Salary</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filteredData.length > 0 ? filteredData.map((record) => (
+                    <tr key={record.id}>
+                      <td className="font-medium">EMP-{String(record.employee_id).padStart(3, '0')}</td>
+                      <td>{record.employee_name}</td>
+                      <td>{record.month} {record.year}</td>
+                      <td>${(record.basic_salary || 0).toLocaleString()}</td>
+                      <td>${(record.allowances || 500).toLocaleString()}</td>
+                      <td>${(record.deductions || 0).toLocaleString()}</td>
+                      <td className="font-medium">${(record.net_salary || 0).toLocaleString()}</td>
+                      <td>
+                        <span
+                          className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${
+                            record.status === "Paid"
+                              ? "bg-success/10 text-success"
+                              : "bg-pending/10 text-pending"
+                          }`}
+                        >
+                          {record.status}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="flex gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 gap-1 text-primary"
+                            onClick={() => handleExportPayslip(record)}
+                          >
+                            <FileText className="h-4 w-4" />
+                            Download
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={9} className="text-center py-8 text-muted-foreground">
+                        No payroll records found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {/* Pagination */}
           <div className="flex items-center justify-between border-t px-4 py-3">
             <p className="text-sm text-muted-foreground">
-              Showing {filteredData.length} of {payrollData.length} employees
+              Showing {filteredData.length} of {payrollData.length} records
             </p>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" disabled>

@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 // Pages
 import Index from "./pages/Index";
@@ -28,35 +30,77 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          {/* Public */}
-          <Route path="/" element={<Index />} />
-          <Route path="/auth/signin" element={<SignIn />} />
-          <Route path="/auth/signup" element={<SignUp />} />
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            {/* Public */}
+            <Route path="/" element={<Index />} />
+            <Route path="/auth/signin" element={<SignIn />} />
+            <Route path="/auth/signup" element={<SignUp />} />
 
-          {/* Employee Portal */}
-          <Route path="/dashboard" element={<EmployeeDashboard />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/attendance" element={<Attendance />} />
-          <Route path="/leave" element={<Leave />} />
-          <Route path="/payroll" element={<Payroll />} />
+            {/* Employee Portal */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute requiredRole={['Employee', 'Admin', 'HR_Manager']}>
+                <EmployeeDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+              <ProtectedRoute requiredRole={['Employee', 'Admin', 'HR_Manager']}>
+                <Profile />
+              </ProtectedRoute>
+            } />
+            <Route path="/attendance" element={
+              <ProtectedRoute requiredRole={['Employee', 'Admin', 'HR_Manager']}>
+                <Attendance />
+              </ProtectedRoute>
+            } />
+            <Route path="/leave" element={
+              <ProtectedRoute requiredRole={['Employee', 'Admin', 'HR_Manager']}>
+                <Leave />
+              </ProtectedRoute>
+            } />
+            <Route path="/payroll" element={
+              <ProtectedRoute requiredRole={['Employee', 'Admin', 'HR_Manager']}>
+                <Payroll />
+              </ProtectedRoute>
+            } />
 
-          {/* Admin Portal */}
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
-          <Route path="/admin/employees" element={<Employees />} />
-          <Route path="/admin/attendance" element={<AdminAttendance />} />
-          <Route path="/admin/leave" element={<LeaveManagement />} />
-          <Route path="/admin/payroll" element={<AdminPayroll />} />
+            {/* Admin Portal */}
+            <Route path="/admin/dashboard" element={
+              <ProtectedRoute requiredRole={['Admin', 'HR_Manager']}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/employees" element={
+              <ProtectedRoute requiredRole={['Admin', 'HR_Manager']}>
+                <Employees />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/attendance" element={
+              <ProtectedRoute requiredRole={['Admin', 'HR_Manager']}>
+                <AdminAttendance />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/leave" element={
+              <ProtectedRoute requiredRole={['Admin', 'HR_Manager']}>
+                <LeaveManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/payroll" element={
+              <ProtectedRoute requiredRole={['Admin', 'HR_Manager']}>
+                <AdminPayroll />
+              </ProtectedRoute>
+            } />
 
-          {/* Catch-all */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+            {/* Catch-all */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

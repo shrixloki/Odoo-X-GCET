@@ -1,39 +1,113 @@
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { SummaryCard } from "@/components/ui/summary-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, ClipboardList, DollarSign, LogIn, LogOut } from "lucide-react";
+import { Calendar, Clock, ClipboardList, DollarSign, LogIn, LogOut, Mail, Check, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-
-const recentActivity = [
-  { id: 1, type: "attendance", message: "Checked in at 9:02 AM", date: "Today", status: "present" as const },
-  { id: 2, type: "leave", message: "Leave request approved", date: "Jan 2, 2026", status: "approved" as const },
-  { id: 3, type: "attendance", message: "Checked out at 6:15 PM", date: "Jan 2, 2026", status: "present" as const },
-  { id: 4, type: "payroll", message: "December salary credited", date: "Jan 1, 2026", status: "approved" as const },
-];
+import { useAuth } from "@/contexts/AuthContext";
+import { useInvitations } from "@/hooks/useInvitations";
+import { apiClient } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 export default function EmployeeDashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { invitations, acceptInvitation, rejectInvitation, pendingCount } = useInvitations();
+  const { toast } = useToast();
+  
+  const [checkInStatus, setCheckInStatus] = useState<{ checkedIn: boolean; checkedOut: boolean; checkInTime?: string; checkOutTime?: string }>({ checkedIn: false, checkedOut: false });
+  const [isLoading, setIsLoading] = useState(false);
+
+  const userName = user?.full_name?.split(' ')[0] || 'User';
+
+  // Load check-in status on mount
+  useEffect(() => {
+    if (user?.id) {
+      const status = apiClient.getTodayStatus(user.id);
+      setCheckInStatus(status);
+    }
+  }, [user?.id]);
+
+  const handleCheckIn = async () => {
+    setIsLoading(true);
+    try {
+      const response = await apiClient.checkIn({});
+      if (response.success) {
+        const status = apiClient.getTodayStatus(user?.id || 0);
+        setCheckInStatus(status);
+        toast({
+          title: "Checked In",
+          description: `You checked in at ${new Date().toLocaleTimeString()}`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to check in",
+        variant: "destructive",
+      });
+    }
+    setIsLoading(false);
+  };
+
+  const handleCheckOut = async () => {
+    setIsLoading(true);
+    try {
+      const response = await apiClient.checkOut({});
+      if (response.success) {
+        const status = apiClient.getTodayStatus(user?.id || 0);
+        setCheckInStatus(status);
+        toast({
+          title: "Checked Out",
+          description: `You checked out at ${new Date().toLocaleTimeString()}`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to check out",
+        variant: "destructive",
+      });
+    }
+    setIsLoading(false);
+  };
+
+  const recentActivity = [
+    { id: 1, type: "attendance", message: checkInStatus.checkedIn ? `Checked in at ${checkInStatus.checkInTime || 'today'}` : "Not checked in yet", date: "Today", status: checkInStatus.checkedIn ? "present" as const : "pending" as const },
+    { id: 2, type: "leave", message: "Leave request approved", date: "Jan 2, 2026", status: "approved" as const },
+    { id: 3, type: "payroll", message: "December salary credited", date: "Jan 1, 2026", status: "approved" as const },
+  ];
 
   return (
-    <AppLayout role="employee" userName="John Doe">
+    <AppLayout role="employee" userName={user?.full_name || 'User'}>
       <div className="space-y-6">
         {/* Page Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Welcome back, John</h1>
+            <h1 className="text-2xl font-semibold">Welcome back, {userName}</h1>
             <p className="text-sm text-muted-foreground">
-              Friday, January 3, 2026
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" className="gap-2">
+            <Button 
+              variant="outline" 
+              className="gap-2"
+              onClick={handleCheckIn}
+              disabled={isLoading || checkInStatus.checkedIn}
+            >
               <LogIn className="h-4 w-4" />
-              Check In
+              {checkInStatus.checkedIn ? 'Checked In' : 'Check In'}
             </Button>
-            <Button variant="outline" className="gap-2">
+            <Button 
+              variant="outline" 
+              className="gap-2"
+              onClick={handleCheckOut}
+              disabled={isLoading || !checkInStatus.checkedIn || checkInStatus.checkedOut}
+            >
               <LogOut className="h-4 w-4" />
-              Check Out
+              {checkInStatus.checkedOut ? 'Checked Out' : 'Check Out'}
             </Button>
           </div>
         </div>
@@ -59,12 +133,65 @@ export default function EmployeeDashboard() {
             icon={<Clock className="h-5 w-5 text-muted-foreground" />}
           />
           <SummaryCard
-            title="Next Payroll"
-            value="Jan 31"
-            subtitle="28 days away"
-            icon={<DollarSign className="h-5 w-5 text-muted-foreground" />}
+            title="Pending Invitations"
+            value={pendingCount.toString()}
+            subtitle="Awaiting response"
+            icon={<Mail className="h-5 w-5 text-muted-foreground" />}
           />
         </div>
+
+        {/* Invitations Section */}
+        {invitations.length > 0 && (
+          <div className="rounded-md border bg-card">
+            <div className="border-b px-4 py-3">
+              <h2 className="font-medium">Invitations</h2>
+            </div>
+            <div className="divide-y">
+              {invitations.map((invitation) => (
+                <div
+                  key={invitation.id}
+                  className="flex items-center justify-between px-4 py-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                      <Mail className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{invitation.message}</p>
+                      <p className="text-xs text-muted-foreground">From: {invitation.from}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {invitation.status === 'pending' ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50"
+                          onClick={() => acceptInvitation(invitation.id)}
+                        >
+                          <Check className="h-3 w-3" />
+                          Accept
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => rejectInvitation(invitation.id)}
+                        >
+                          <X className="h-3 w-3" />
+                          Reject
+                        </Button>
+                      </>
+                    ) : (
+                      <StatusBadge status={invitation.status === 'accepted' ? 'approved' : 'rejected'} />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Quick Actions */}
         <div className="grid gap-4 md:grid-cols-3">

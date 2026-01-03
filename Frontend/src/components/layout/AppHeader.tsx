@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, User } from "lucide-react";
+import { Bell, ChevronDown, User, Wifi, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -8,14 +8,30 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 
 interface AppHeaderProps {
   userName: string;
   role: "employee" | "admin";
+  onRefresh?: () => void;
 }
 
 export function AppHeader({ userName, role }: AppHeaderProps) {
   const navigate = useNavigate();
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   return (
     <header className="sticky top-0 z-30 h-16 border-b bg-card">
@@ -27,6 +43,15 @@ export function AppHeader({ userName, role }: AppHeaderProps) {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Connection Status */}
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            {isOnline ? (
+              <Wifi className="h-4 w-4 text-green-500" />
+            ) : (
+              <WifiOff className="h-4 w-4 text-red-500" />
+            )}
+          </div>
+
           {/* Notifications */}
           <Button variant="ghost" size="icon" className="relative">
             <Bell className="h-5 w-5 text-muted-foreground" />
