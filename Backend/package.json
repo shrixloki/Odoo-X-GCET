@@ -1,0 +1,60 @@
+{
+  "name": "dayflow-hrms-backend",
+  "version": "1.0.0",
+  "description": "Production-ready HRMS backend for Dayflow - Phase 1",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "migrate": "node src/database/migrate.js",
+    "setup-db": "node setup-database.js",
+    "setup-sqlite": "node setup-sqlite.js",
+    "setup": "node setup-phase2.js",
+    "setup-phase3": "node setup-phase3.js",
+    "docker:build": "docker build -t dayflow-hrms .",
+    "docker:run": "docker run -p 3000:3000 dayflow-hrms",
+    "docker:compose": "docker-compose up -d",
+    "docker:logs": "docker-compose logs -f dayflow-app",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:property": "jest --testNamePattern=\"Property\"",
+    "test:unit": "jest --testNamePattern=\"Unit\"",
+    "test:integration": "jest --testNamePattern=\"Integration\""
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "csv-writer": "^1.6.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "express-winston": "^4.2.0",
+    "helmet": "^7.1.0",
+    "joi": "^17.11.0",
+    "jsonwebtoken": "^9.0.2",
+    "moment": "^2.29.4",
+    "multer": "^1.4.5-lts.1",
+    "node-cron": "^3.0.3",
+    "pdfkit": "^0.14.0",
+    "pg": "^8.11.3",
+    "sqlite3": "^5.1.7",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "fast-check": "^4.5.3",
+    "jest": "^30.2.0",
+    "nodemon": "^3.0.2",
+    "supertest": "^7.1.4"
+  },
+  "keywords": [
+    "hrms",
+    "backend",
+    "nodejs",
+    "postgresql"
+  ],
+  "author": "Dayflow Team",
+  "license": "MIT"
+}

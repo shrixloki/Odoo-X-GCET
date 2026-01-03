@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: dayflow-postgres
+    environment:
+      POSTGRES_DB: dayflow_hrms
+      POSTGRES_USER: dayflow
+      POSTGRES_PASSWORD: dayflow_secure_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./src/database/migrations.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - dayflow-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dayflow -d dayflow_hrms"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Dayflow HRMS Application
+  dayflow-app:
+    build: .
+    container_name: dayflow-hrms
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: dayflow_hrms
+      DB_USER: dayflow
+      DB_PASSWORD: dayflow_secure_password
+      JWT_SECRET: your_super_secure_jwt_secret_key_here_change_in_production
+      JWT_EXPIRES_IN: 24h
+      PORT: 3000
+      BCRYPT_ROUNDS: 12
+      LOG_LEVEL: info
+      FRONTEND_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    networks:
+      - dayflow-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: dayflow-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - dayflow-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  dayflow-network:
+    driver: bridge
